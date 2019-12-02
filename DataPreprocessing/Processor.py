@@ -1,16 +1,12 @@
-from DataPreprocessing.ProcessMethod import *
+from torchvision import transforms
 
-class Preprocessor(object):
-    def __init__(self):
-        self.processors = []
 
-    def register_processor(self, processors):
-        for processor in processors:
-            assert isinstance(processor, ProcessMethod)
-            self.processors.append(processor)
-
-    def Process(self, data):
-        for processor in self.processors:
-            data = processor.Process(data)
-        return data
+def get_preprocessor():
+    transform = transforms.Compose([
+        transforms.Resize([64, 64]),
+        transforms.CenterCrop([54, 54]),
+        transforms.ToTensor(),
+        transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    ])
+    return transform
 
