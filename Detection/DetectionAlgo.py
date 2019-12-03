@@ -7,7 +7,7 @@ import glob
 import numpy as np
 from PIL import Image
 from torchvision import transforms
-from Models.model import Model, VGG16
+from Models import Model, VGG16, VGG16Detection
 import matplotlib.pyplot as plt
 
 
@@ -55,19 +55,13 @@ def inference(model, image):
     image = transform(image)
     images = image.unsqueeze(dim=0).cuda()
 
-    length_logits, digit1_logits, digit2_logits, digit3_logits, digit4_logits, digit5_logits = model.eval()(images)
+    return model.eval()(images)
 
-    return (to_prob(length_logits),
-            to_prob(digit1_logits),
-            to_prob(digit2_logits),
-            to_prob(digit3_logits),
-            to_prob(digit4_logits),
-            to_prob(digit5_logits))
 
 def batch_images(model, images):
     N, labels, p_outputs = [], [], []
     for image in list(images):
-        length_prob, digit1_prob, digit2_prob, digit3_prob, digit4_prob, digit5_prob = inference(model, image)
+        length_prob, digit1_prob, digit2_prob, digit3_prob, digit4_prob, digit5_prob = map(to_prob, inference(model, image))
         N_digit = np.argmax(length_prob)
         digits_prob = np.array([np.max(length_prob), np.max(digit1_prob), np.max(digit2_prob), np.max(digit3_prob), np.max(digit4_prob), np.max(digit5_prob)])
         digits = np.array([np.argmax(digit1_prob),
@@ -80,6 +74,19 @@ def batch_images(model, images):
         p_outputs.append(digits_prob)
 
     return np.array(N), np.array(labels), np.array(p_outputs)
+
+def batch_images_detection(model, images):
+    isDigitResult = []
+    for image in list(images):
+        isDigit = inference(model, image)
+        print(isDigit.cpu().detach().numpy())
+        isdigit = np.argmax(isDigit.cpu().detach().numpy())
+        # if isdigit == 1:
+        #     cv2.imshow("has digit", image)
+        #     cv2.waitKey(0)
+        isDigitResult.append(isdigit)
+    return np.array(isDigitResult)
+
 
 def batch_check_valid(probability, labels, N_digits, min_digit_prob=0.5, min_N_prob=0.98):
     valididity = []
@@ -101,6 +108,8 @@ def batch_check_valid(probability, labels, N_digits, min_digit_prob=0.5, min_N_p
 def load_model(checkpoint_path, model_name="VGG16"):
     if model_name == "VGG16":
         model = VGG16()
+    elif model_name == "detection":
+        model = VGG16Detection()
     else:
         model = Model()
 
@@ -203,9 +212,9 @@ def digit_detection(model, image, debug=True):
         else:
             os.makedirs('./debug')
 
-    window_size = 32
+    window_size = 64
     expansion_ratio = 2
-    nrounds = 2
+    nrounds = 4
     strides = (4, 4)
     height, width, channel = image.shape
     box_queue = [(0, 0, width, height)]
@@ -225,10 +234,12 @@ def digit_detection(model, image, debug=True):
             bbox = box_queue.pop()
             # crop the given bounding box with box size
             crops, crop_start_loc = sliding_window_crops(image, bbox, [box_size, box_size], strides=strides)
-            n_digit, digit_val, classified_prob = batch_images(model, crops)
-            valid_crop = batch_check_valid(classified_prob, digit_val, n_digit)
-            print(valid_crop.shape)
-            print(crop_start_loc.shape)
+            # n_digit, digit_val, classified_prob = batch_images(model, crops)
+            # valid_crop = batch_check_valid(classified_prob, digit_val, n_digit)
+            isdigit = batch_images_detection(model, crops)
+            valid_crop = np.where(isdigit == 1, True, False)
+            # print(valid_crop.shape)
+            # print(crop_start_loc.shape)
             valid_crop_start_loc.extend(list(crop_start_loc[valid_crop]))
             print (len(valid_crop_start_loc))
 
@@ -258,6 +269,6 @@ def digit_detection(model, image, debug=True):
         plt.imsave('debug/test_bbox_at_{}.png'.format(i), test_bbox_img[..., [2, 1, 0]])
 
 if __name__ == "__main__":
-    model = load_model("../Model_Saved/model-322000.pth", "Other")
-    image = cv2.imread("../Data/train/2.png")
+    model = load_model("../logs/Detection/BASE_MODEL_5000", "detection")
+    image = cv2.imread("../Data/train/1.png")
     digit_detection(model, image)

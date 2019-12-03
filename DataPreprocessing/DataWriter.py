@@ -64,7 +64,7 @@ def write_train_and_val_data_for_detection(train_val_split=0.1):
     val_sample = np.array([np.random.rand() < train_val_split for _ in range(total_size)])
     train_sample = np.logical_not(val_sample)
 
-    train_portion_data, train_portion_meta = total_data[train_sample], total_data[train_sample]
+    train_portion_data, train_portion_meta = total_data[train_sample], total_meta[train_sample]
     val_portion_data, val_portion_meta = total_data[val_sample], total_meta[val_sample]
 
     hf_train = h5py.File('../Data/detection-train.h5', 'w')
@@ -75,7 +75,7 @@ def write_train_and_val_data_for_detection(train_val_split=0.1):
 
 
     hf_val.create_dataset("image", data=val_portion_data)
-    hf_val.create_dataset("isdigit", data=non_digit_meta)
+    hf_val.create_dataset("isdigit", data=val_portion_meta)
 
 if __name__ == "__main__":
     write_train_and_val_data_for_detection()

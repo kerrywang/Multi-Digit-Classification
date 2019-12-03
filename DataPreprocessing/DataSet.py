@@ -21,7 +21,24 @@ class DataSet(data.Dataset):
         image = Image.fromarray(image)
         image = self.transform(image)
 
-        return image, length, np.array(digits)
+        return image, length, [digit for digit in digits]
+
+class DataSetDetection(data.Dataset):
+    def __init__(self, data_path, transform):
+        self.transform = transform
+        self.data = h5py.File(data_path, 'r')
+
+    def __len__(self):
+        return self.data["isdigit"].shape[0]
+
+    def __getitem__(self, index):
+        image = self.data["image"][index]
+        isDigit = self.data["isdigit"][index]
+
+        image = Image.fromarray(image)
+        image = self.transform(image)
+
+        return image, isDigit
 
 
 if __name__ == "__main__":

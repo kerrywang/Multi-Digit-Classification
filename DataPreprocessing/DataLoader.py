@@ -105,10 +105,12 @@ class DataLoader(object):
                 meta_datas.append(meta_data)
                 new_image = cv2.imread(os.path.join(data_path, img_file))
 
-                random_bbox = DataLoader.GenerateRandomBBox(new_image.shape[1], new_image.shape[0], 32, 32)
-                if random_bbox and random_bbox.calculate_iou(meta_data.bbox) < 0.05:
-                    # we can say this is a valid non digit
-                    datas.append(cv2.resize(new_image, (64, 64)))
+                for i in range(5):
+                    random_bbox = DataLoader.GenerateRandomBBox(new_image.shape[1], new_image.shape[0], 16, 16)
+                    if random_bbox and random_bbox.calculate_iou(meta_data.bbox) < 0.1:
+                        # we can say this is a valid non digit
+                        datas.append(cv2.resize(random_bbox.crop(new_image), (64, 64)))
+                        break
 
         return np.array(datas)
 
