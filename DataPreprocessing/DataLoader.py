@@ -1,5 +1,7 @@
 from zipfile import ZipFile
 import Constant as constant
+
+import numpy as np
 import os
 import cv2
 import h5py
@@ -58,7 +60,7 @@ class DataLoader(object):
 
 
     @staticmethod
-    def load_data(data_path, save_path=None, cropped=True):
+    def load_data(data_path, cropped=True):
         datas, meta_datas = [], []
         index = 0
 
@@ -73,13 +75,14 @@ class DataLoader(object):
                     continue # we ignore this case
                 meta_datas.append(meta_data)
                 new_image = cv2.imread(os.path.join(data_path, img_file))
-
                 if cropped:
-                    datas.append(meta_data.bbox.crop(new_image))
-                else:
-                    datas.append(new_image)
+                    new_image  = meta_data.bbox.crop(new_image)
 
-        return datas, meta_datas
+                datas.append(cv2.resize(new_image, (64, 64)))
+
+                print (datas[-1].shape)
+
+        return np.array(datas), np.array(meta_datas)
 
     @staticmethod
     def load_meta_data(data_dir):
@@ -132,6 +135,3 @@ class DataLoader(object):
 # class DataObject(object):
 #     def __init__(self):
 
-if __name__ == "__main__":
-    dt_loader = Data()
-    print ("here")
