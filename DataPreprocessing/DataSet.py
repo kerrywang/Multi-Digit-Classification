@@ -18,21 +18,10 @@ class DataSet(data.Dataset):
         digits = self.data["labels"][index]
         length = self.data["length"][index]
 
-        print ("getting index: {} digit: {} with length: {}".format(index, digits, length))
-        length_template = np.zeros((7,), dtype=np.long)
-        digit_template = np.zeros((11,), dtype=np.long)
-
-        length_template[length] = 1.0
-        new_digits = []
-        for digit in digits:
-            new_digit = digit_template.copy()
-            new_digit[digit] = 1.0
-            new_digits.append(new_digit)
-
         image = Image.fromarray(image)
         image = self.transform(image)
 
-        return image, length_template, np.array(new_digits)
+        return image, length, np.array(digits)
 
 
 if __name__ == "__main__":

@@ -19,9 +19,26 @@ class MetaData:
             res += str(self.digit[i])
         return res
 
+
+def build_bounding_box(attrs):
+    attrs_left, attrs_top, attrs_width, attrs_height = map(lambda x: [int(i) for i in x],
+                                                           [attrs['left'], attrs['top'], attrs['width'],
+                                                            attrs['height']])
+    min_left, min_top, max_right, max_bottom = (min(attrs_left),
+                                                min(attrs_top),
+                                                max(map(lambda x, y: x + y, attrs_left, attrs_width)),
+                                                max(map(lambda x, y: x + y, attrs_top, attrs_height)))
+    center_x, center_y, max_side = ((min_left + max_right) / 2.0,
+                                    (min_top + max_bottom) / 2.0,
+                                    max(max_right - min_left, max_bottom - min_top))
+    return BBox(center_x - max_side / 2.0,
+            center_y - max_side / 2.0,
+            max_side,
+            max_side)
+
 class BBox(object):
-    def __init__(self, attrs):
-        self.left, self.top, self.width, self.height = self.build_bounding_box(attrs)
+    def __init__(self, left, top, width, height):
+        self.left, self.top, self.width, self.height = left, top, width, height
 
     def width(self):
         return self.width
@@ -32,6 +49,12 @@ class BBox(object):
     def top_left(self):
         return self.left, self.top
 
+    def bot_right(self):
+        return self.left + self.width, self.top + self.height
+
+    def get_area(self):
+        return self.width * self.height
+
     def crop(self, image):
         x_start, y_start, width, height = (max(0, int(round(self.left - 0.15 * self.width))),
                                            max(0, int(round(self.top - 0.15 * self.height))),
@@ -39,24 +62,55 @@ class BBox(object):
                                            int(round(self.height * 1.3)))
         return image[y_start: min(y_start + height, image.shape[0]), x_start: min(x_start + width, image.shape[1])]
 
-    def build_bounding_box(self, attrs):
-        attrs_left, attrs_top, attrs_width, attrs_height = map(lambda x: [int(i) for i in x],
-                                                               [attrs['left'], attrs['top'], attrs['width'],
-                                                                attrs['height']])
-        min_left, min_top, max_right, max_bottom = (min(attrs_left),
-                                                    min(attrs_top),
-                                                    max(map(lambda x, y: x + y, attrs_left, attrs_width)),
-                                                    max(map(lambda x, y: x + y, attrs_top, attrs_height)))
-        center_x, center_y, max_side = ((min_left + max_right) / 2.0,
-                                        (min_top + max_bottom) / 2.0,
-                                        max(max_right - min_left, max_bottom - min_top))
-        return (center_x - max_side / 2.0,
-                center_y - max_side / 2.0,
-                max_side,
-                max_side)
+
+
+    def calculate_iou(self, bbox):
+        xA = max(self.top_left()[0], bbox.top_left()[0])
+        yA = max(self.top_left()[1], bbox.top_left()[1])
+        xB = min(self.bot_right()[0], bbox.bot_right()[0])
+        yB = min(self.bot_right()[1], bbox.bot_right()[1])
+        # compute the area of intersection rectangle
+        interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+
+        return float(interArea) / (self.get_area() + bbox.get_area())
+
 
 
 class DataLoader(object):
+    @staticmethod
+    def GenerateRandomBBox(width, height, bbox_width, bbox_height):
+        try:
+            x_start = int(round(np.random.randint(0, max(0, width - bbox_width))))
+            y_start = int(round(np.random.randint(0, max(0, height - bbox_height))))
+            newBox = BBox(x_start, y_start, bbox_width, bbox_height)
+            return newBox
+        except ValueError:
+            return None
+
+
+    @staticmethod
+    def create_non_digit_data(data_path):
+        datas, meta_datas = [], []
+        index = 0
+
+        meta_data_path = os.path.join(data_path, "digitStruct.mat")
+        digit_struct_mat = h5py.File(meta_data_path, 'r')
+        for img_file in os.listdir(data_path):
+            if img_file.endswith(".png"):
+                index = int(img_file.replace(".png", ""))
+                meta_data = DataLoader.get_attribute(digit_struct_mat, index - 1)
+                if (meta_data.length > 5):
+                    print("print index: {} has length larger than 5".format(str(index + 1)))
+                    continue  # we ignore this case
+                meta_datas.append(meta_data)
+                new_image = cv2.imread(os.path.join(data_path, img_file))
+
+                random_bbox = DataLoader.GenerateRandomBBox(new_image.shape[1], new_image.shape[0], 32, 32)
+                if random_bbox and random_bbox.calculate_iou(meta_data.bbox) < 0.05:
+                    # we can say this is a valid non digit
+                    datas.append(cv2.resize(new_image, (64, 64)))
+
+        return np.array(datas)
 
 
     @staticmethod
@@ -109,7 +163,7 @@ class DataLoader(object):
         for i, ch in enumerate(attrs['label']):
             label[i] = int(ch) if int(ch) != 10 else 0
 
-        bbox = BBox(attrs)
+        bbox = build_bounding_box(attrs)
         meta_data = MetaData(length, label, bbox)
         return meta_data
 
@@ -135,3 +189,6 @@ class DataLoader(object):
 # class DataObject(object):
 #     def __init__(self):
 
+if __name__ == "__main__":
+    import Constant
+    DataLoader.create_non_digit_data(Constant.train_data())

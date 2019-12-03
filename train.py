@@ -32,8 +32,6 @@ parser.add_argument('-dr', '--decay_rate', default=0.9, type=float, help='Defaul
 
 
 def _loss(length_logits, digit1_logits, digit2_logits, digit3_logits, digit4_logits, digit5_logits, length_labels, digits_labels):
-    print(length_logits)
-    print(length_labels)
     length_cross_entropy = torch.nn.functional.cross_entropy(length_logits, length_labels)
     digit1_cross_entropy = torch.nn.functional.cross_entropy(digit1_logits, digits_labels[0])
     digit2_cross_entropy = torch.nn.functional.cross_entropy(digit2_logits, digits_labels[1])
